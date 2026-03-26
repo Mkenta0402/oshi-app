@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>推し活アプリ</title>
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#6366f1">
-
 <style>
 body {
   margin:0;
@@ -22,12 +19,11 @@ body {
 }
 .card {
   background: rgba(255,255,255,0.08);
-  backdrop-filter: blur(12px);
   border-radius:20px;
   padding:15px;
   margin-bottom:15px;
 }
-input, textarea {
+input, select {
   width:100%;
   padding:10px;
   border-radius:12px;
@@ -43,68 +39,83 @@ button {
   margin-top:8px;
 }
 .primary {
-  background: linear-gradient(135deg,#6366f1,#8b5cf6);
+  background:#6366f1;
   color:white;
-}
-.gallery {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
 }
 .gallery img {
   width:100%;
+  margin-top:5px;
+  border-radius:10px;
+}
+.date-group {
+  margin-top:10px;
+  padding:10px;
+  background: rgba(255,255,255,0.05);
   border-radius:10px;
 }
 </style>
 </head>
 
 <body>
-
 <div class="container">
 
 <div class="card">
-<h2>ログイン</h2>
-<input id="email" placeholder="メール">
-<input id="password" placeholder="パスワード" type="password">
-<button class="primary" onclick="login()">ログイン</button>
-<button onclick="register()">新規登録</button>
+<h3>ログイン</h3>
+<input id="email">
+<input id="password" type="password">
+<button onclick="login()">ログイン</button>
+<button onclick="register()">登録</button>
 </div>
 
 <div class="card">
-<h2>ライブ</h2>
-<input id="event" placeholder="ライブ名">
+<h3>チェキ設定</h3>
+<input id="type1Name" value="通常">
+<input id="type1Price" type="number" value="1000">
+<input id="type2Name" value="サイン">
+<input id="type2Price" type="number" value="2000">
+</div>
+
+<div class="card">
+<h3>記録</h3>
+<input id="member" placeholder="メンバー">
+<select id="type"></select>
+<input id="event" placeholder="ライブ">
 <input id="date" type="date">
-</div>
-
-<div class="card">
-<h2>メモ</h2>
-<textarea id="memo"></textarea>
-</div>
-
-<div class="card">
 <input type="file" id="image">
-<button class="primary" onclick="saveLog()">保存</button>
+<button onclick="saveLog()">保存</button>
 </div>
 
 <div class="card">
-<h2>ギャラリー</h2>
-<div class="gallery" id="gallery"></div>
+<h3>フィルター</h3>
+<input type="date" id="filterDate">
+<input id="filterMember" placeholder="メンバー絞り込み">
+<button onclick="applyFilter()">絞り込み</button>
+<button onclick="loadLogs()">全表示</button>
+</div>
+
+<div class="card">
+<h3>合計</h3>
+<div id="total">0円</div>
+</div>
+
+<div class="card">
+<h3>日付ごと一覧</h3>
+<div id="list"></div>
 </div>
 
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyATMb11o7Tkb7Ai-si56NrAq0vKcbHx068",
+  apiKey: "AIzaSy...",
   authDomain: "oshi-app-2b208.firebaseapp.com",
   projectId: "oshi-app-2b208",
   storageBucket: "oshi-app-2b208.firebasestorage.app",
-  messagingSenderId: "292512355103",
   appId: "1:292512355103:web:db7ef918accb698991562a"
 };
 
@@ -113,75 +124,95 @@ const auth = getAuth();
 const db = getFirestore();
 const storage = getStorage();
 
-// ログイン
-window.login = function(){
-  signInWithEmailAndPassword(auth,email.value,password.value)
-  .then(()=>{
-    alert("ログイン成功");
-    loadLogs();
-  })
-  .catch(e=>alert(e.message));
-};
+function updateTypes(){
+  type.innerHTML = `
+  <option value="${type1Price.value}">${type1Name.value}</option>
+  <option value="${type2Price.value}">${type2Name.value}</option>`;
+}
+window.onload = updateTypes;
+type1Name.oninput = updateTypes;
+type1Price.oninput = updateTypes;
+type2Name.oninput = updateTypes;
+type2Price.oninput = updateTypes;
 
-// 登録
-window.register = function(){
-  const emailVal = document.getElementById("email").value;
-  const passVal = document.getElementById("password").value;
+window.login = ()=>signInWithEmailAndPassword(auth,email.value,password.value);
+window.register = ()=>createUserWithEmailAndPassword(auth,email.value,password.value);
 
-  createUserWithEmailAndPassword(auth, emailVal, passVal)
-  .then(()=>alert("登録完了"))
-  .catch(e=>alert(e.message));
-};
-
-// 画像アップ
 async function uploadImage(file){
-  const storageRef = ref(storage,'images/'+Date.now());
-  await uploadBytes(storageRef,file);
-  return await getDownloadURL(storageRef);
+  const r = ref(storage,'img/'+Date.now());
+  await uploadBytes(r,file);
+  return await getDownloadURL(r);
 }
 
-// 保存
 window.saveLog = async function(){
-  let file = document.getElementById("image").files[0];
-  let imageUrl = "";
+  if(!auth.currentUser)return alert("ログインして");
 
-  if(file){
-    imageUrl = await uploadImage(file);
-  }
+  let url="";
+  if(image.files[0]) url = await uploadImage(image.files[0]);
 
   await addDoc(collection(db,"logs"),{
-    uid: auth.currentUser.uid,
-    event: event.value,
-    date: date.value,
-    memo: memo.value,
-    image: imageUrl,
-    created: new Date()
+    uid:auth.currentUser.uid,
+    member:member.value,
+    type:Number(type.value),
+    date:date.value,
+    image:url
   });
 
-  alert("保存完了");
   loadLogs();
 };
 
-// 読み込み
+window.applyFilter = async function(){
+  const d = filterDate.value;
+  const m = filterMember.value;
+
+  const snap = await getDocs(collection(db,"logs"));
+  render(snap,d,m);
+};
+
 async function loadLogs(){
-  const snapshot = await getDocs(collection(db,"logs"));
-  let html="";
+  const snap = await getDocs(collection(db,"logs"));
+  render(snap);
+}
+
+function render(snapshot, filterDate="", filterMember=""){
+  let total=0;
+  let map={};
 
   snapshot.forEach(doc=>{
     let d=doc.data();
-    if(d.uid===auth.currentUser.uid && d.image){
-      html += `<img src="${d.image}">`;
-    }
+    if(d.uid!==auth.currentUser?.uid)return;
+
+    if(filterDate && d.date!==filterDate)return;
+    if(filterMember && !d.member.includes(filterMember))return;
+
+    total+=d.type||0;
+
+    if(!map[d.date]) map[d.date]=[];
+    map[d.date].push(d);
   });
 
-  document.getElementById("gallery").innerHTML = html;
-}
-</script>
+  document.getElementById("total").innerText = total+"円";
 
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+  let html="";
+  Object.keys(map).sort().reverse().forEach(date=>{
+    let dayTotal=0;
+
+    html+=`<div class="date-group"><b>${date}</b><br>`;
+
+    map[date].forEach(d=>{
+      dayTotal+=d.type||0;
+      if(d.image) html+=`<img src="${d.image}">`;
+    });
+
+    html+=`<div>合計:${dayTotal}円</div></div>`;
+  });
+
+  list.innerHTML = html;
 }
+
+onAuthStateChanged(auth,user=>{
+  if(user) loadLogs();
+});
 </script>
 
 </body>
