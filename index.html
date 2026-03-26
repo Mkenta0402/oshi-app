@@ -62,35 +62,30 @@ button {
 
 <div class="container">
 
-<!-- ログイン -->
 <div class="card">
 <h2>ログイン</h2>
-<input id="email">
-<input id="password">
+<input id="email" placeholder="メール">
+<input id="password" placeholder="パスワード" type="password">
 <button class="primary" onclick="login()">ログイン</button>
 <button onclick="register()">新規登録</button>
 </div>
 
-<!-- イベント -->
 <div class="card">
 <h2>ライブ</h2>
 <input id="event" placeholder="ライブ名">
 <input id="date" type="date">
 </div>
 
-<!-- メモ -->
 <div class="card">
 <h2>メモ</h2>
 <textarea id="memo"></textarea>
 </div>
 
-<!-- 画像 -->
 <div class="card">
 <input type="file" id="image">
 <button class="primary" onclick="saveLog()">保存</button>
 </div>
 
-<!-- ギャラリー -->
 <div class="card">
 <h2>ギャラリー</h2>
 <div class="gallery" id="gallery"></div>
@@ -121,7 +116,10 @@ const storage = getStorage();
 // ログイン
 window.login = function(){
   signInWithEmailAndPassword(auth,email.value,password.value)
-  .then(()=>{alert("ログイン成功");loadLogs();})
+  .then(()=>{
+    alert("ログイン成功");
+    loadLogs();
+  })
   .catch(e=>alert(e.message));
 };
 
@@ -172,7 +170,7 @@ async function loadLogs(){
   snapshot.forEach(doc=>{
     let d=doc.data();
     if(d.uid===auth.currentUser.uid && d.image){
-      html += <img src="${d.image}">;
+      html += `<img src="${d.image}">`;
     }
   });
 
